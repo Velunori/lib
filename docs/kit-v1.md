@@ -61,3 +61,10 @@ Only `velunori.control-center` receives the scoped `desktopState` and
 `setDesktopToggle`, `previewAppearance`, `applyAppearance`,
 `clearAppearancePreview` callbacks. Other plugins receive no mutation callbacks.
 No device service objects cross this facade. Control Center requires core 0.4.0.
+
+## Composite bar indicators (core 0.4.1)
+
+A widget that draws its own per-target active marks may set
+`readonly property real openPanelIndicatorWidth: 0` to suppress the generic
+host underline. Positive numeric hints keep their previous behavior; widgets
+without a valid hint retain the automatic indicator extent.

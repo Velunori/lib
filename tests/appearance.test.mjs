@@ -38,3 +38,9 @@ test('Orbit avoids collisions with asymmetric sections', () => {
     assert.equal(model.fitsOrbit(890, 120, 150, 350, 20), true);
     assert.equal(model.fitsOrbit(890, 350, 150, 120, 20), true);
 });
+
+test('composite widgets can suppress the host mark with zero without affecting ordinary widgets', () => {
+    assert.equal(hostModel.panelIndicatorExtent(0, 72), 0);
+    assert.equal(hostModel.panelIndicatorExtent(32, 72), 32);
+    for (const hint of [undefined, null, -1, NaN, Infinity]) assert.equal(hostModel.panelIndicatorExtent(hint, 72), 72);
+});

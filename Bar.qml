@@ -188,7 +188,7 @@ Item {
     function hideSettings(): void { root.closeSettings() }
     function status(): string {
       return JSON.stringify({style: root.appearance.style, ready: root.hostReady, controlCenterOpened: root.controlCenterWidget() ? root.controlCenterWidget().opened : settingsOwner.opened,
-        coreVersion: "0.4.0",
+        coreVersion: "0.4.1",
         availableControlPanels: [],
         activePanel: root.activePopout && "moduleName" in root.activePopout ? root.activePopout.moduleName : "",
         widgets: root.debugBarGeometry()})
@@ -2137,8 +2137,7 @@ Item {
     readonly property real panelIndicatorExtent: {
       var key = root.vertical ? "openPanelIndicatorHeight" : "openPanelIndicatorWidth"
       var hint = activeItem && key in activeItem ? activeItem[key] : undefined
-      if (hint !== undefined && hint !== null && hint > 0) return Math.round(hint)
-      return Math.max(Style.space(10), Math.round((root.vertical ? slot.height : slot.width) * 0.55))
+      return BarModel.panelIndicatorExtent(hint, Math.max(Style.space(10), Math.round((root.vertical ? slot.height : slot.width) * 0.55)))
     }
     // Omarchy's tray reserves its entire drawer even while collapsed. Floating
     // capsules reserve only the visible portion; preserve the widget's internal
@@ -2214,7 +2213,7 @@ Item {
       readonly property int inset: Style.space(2)
 
       visible: opacity > 0
-      opacity: slot.panelOpen && !slot.dragSource ? 0.9 : 0
+      opacity: slot.panelOpen && slot.panelIndicatorExtent > 0 && !slot.dragSource ? 0.9 : 0
       color: Commons.Color.accent
       radius: Math.min(width, height) / 2
       width: root.vertical ? Style.space(2) : slot.panelIndicatorExtent

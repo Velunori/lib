@@ -1,3 +1,8 @@
+// A zero hint lets composite widgets paint an indicator for each click target.
+function panelIndicatorExtent(hint, fallback) {
+  return typeof hint === "number" && isFinite(hint) && hint >= 0 ? Math.round(hint) : fallback
+}
+
 // Velunori renders these controls in its separate Control Center plugin.
 function withoutDesktopControls(entries) {
   var ids = ["omarchy.indicators", "omarchy.monitor", "omarchy.power", "omarchy.audio", "omarchy.network"]
@@ -216,6 +221,7 @@ function nearestDropTarget(candidates, point, vertical) {
 
 if (typeof module !== "undefined") {
   module.exports = {
+    panelIndicatorExtent: panelIndicatorExtent,
     withoutDesktopControls: withoutDesktopControls,
     isDrawnSlot: isDrawnSlot,
     pickDrawnSlot: pickDrawnSlot,
