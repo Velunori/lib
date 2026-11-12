@@ -773,10 +773,15 @@ Item {
   // bar host and scriptable config helpers can't drift on entry shape.
   function normalizeLayout(layout) {
     var normalized = Util.normalizeLayout(Util.isPlainObject(layout) ? layout : fallbackBarConfig.layout)
+    // Derive from this exact snapshot: the hasControlCenter binding may still
+    // contain the previous configuration during onBarConfigChanged.
+    var unified = [normalized.left, normalized.center, normalized.right].some(function(entries) {
+      return entries.some(function(entry) { return BarModel.entryId(entry) === "velunori.control-center" })
+    })
     return {
-      left:   pinTrayToInner(root.hasControlCenter ? BarModel.withoutDesktopControls(normalized.left) : normalized.left,   "left"),
-      center: pinTrayToInner(root.hasControlCenter ? BarModel.withoutDesktopControls(normalized.center) : normalized.center, "center"),
-      right:  pinTrayToInner(root.hasControlCenter ? BarModel.withoutDesktopControls(normalized.right) : normalized.right,  "right")
+      left: pinTrayToInner(unified ? BarModel.withoutDesktopControls(normalized.left) : normalized.left, "left"),
+      center: pinTrayToInner(unified ? BarModel.withoutDesktopControls(normalized.center) : normalized.center, "center"),
+      right: pinTrayToInner(unified ? BarModel.withoutDesktopControls(normalized.right) : normalized.right, "right")
     }
   }
 

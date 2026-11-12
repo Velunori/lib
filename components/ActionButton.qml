@@ -11,6 +11,7 @@ Button {
     contentItem: Text {
         id: label
         text: root.text
+        elide: Text.ElideRight
         color: root.primary ? "#202026" : "#eeedf3"
         font.pixelSize: 14
         font.weight: Font.Medium
