@@ -64,10 +64,44 @@ ShellRoot {
     }
     property var systemCommand: []
     SystemControls { id: systemControls; shell: systemHost; onCommandRequested: function(argv) { systemCommand = argv; } }
+    QtObject {
+        id: audioBackend
+        property bool hasOutput: true
+        property real outputVolume: 0.4
+        property bool outputMuted: false
+        property int writes: 0
+        function setOutputVolume(value) { outputVolume = value; writes++; }
+        function toggleOutputMute() { outputMuted = !outputMuted; }
+    }
+    AudioControls { id: audioControls; width: 400; backend: audioBackend }
+    QtObject {
+        id: monitorBackend
+        property var displays: [{name: "DP-1", enabled: true, width: 1920, height: 1080}, {name: "DP-2", enabled: true, width: 1920, height: 1080}]
+        property int enabledDisplayCount: 2
+        property string toggled: ""
+        function refresh() {}
+        function toggleDisplay(name, enabled) { toggled = name; }
+    }
+    DisplayControls { id: displayControls; width: 400; backend: monitorBackend; preferredMonitor: "DP-2" }
 
     Timer {
         interval: 100; running: true
         onTriggered: {
+            check(audioBackend.writes === 0, "audio binding does not change system volume");
+            audioControls.setVolume(1.5);
+            check(audioBackend.outputVolume === 1, "audio volume clamped");
+            audioControls.toggleMute();
+            check(audioBackend.outputMuted, "audio mute action");
+            audioBackend.hasOutput = false;
+            audioControls.setVolume(0);
+            check(audioBackend.outputVolume === 1, "unavailable output cannot be changed");
+            check(displayControls.selectedMonitor === "DP-2", "monitor defaults to panel's screen");
+            displayControls.toggleSelectedDisplay();
+            check(monitorBackend.toggled === "DP-2", "monitor action targets selection");
+            monitorBackend.toggled = "";
+            monitorBackend.enabledDisplayCount = 1;
+            displayControls.toggleSelectedDisplay();
+            check(monitorBackend.toggled === "", "last enabled display cannot be disabled");
             systemControls.execute("nightlight");
             systemControls.execute("dnd");
             systemControls.execute("awake");

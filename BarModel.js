@@ -18,6 +18,18 @@ function hostedControls(layout) {
   return entries
 }
 
+function availableHostedPanels(slots) {
+  var ids = []
+  for (var slot of slots) {
+    if (slot.region !== "control-center") continue
+    var widget = slot.activeItem
+    if (!widget || typeof widget.open !== "function" || typeof widget.close !== "function") continue
+    if (slot.moduleName === "omarchy.power" && widget.batteryPresent !== true) continue
+    if (ids.indexOf(slot.moduleName) === -1) ids.push(slot.moduleName)
+  }
+  return ids
+}
+
 function isPlainObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
@@ -232,6 +244,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     withoutDesktopControls: withoutDesktopControls,
     hostedControls: hostedControls,
+    availableHostedPanels: availableHostedPanels,
     isDrawnSlot: isDrawnSlot,
     pickDrawnSlot: pickDrawnSlot,
     pickPanelSlot: pickPanelSlot,

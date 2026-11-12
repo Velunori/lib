@@ -12,9 +12,10 @@ A floating desktop shell for Omarchy. One visual language, two bar layouts.
   disturb, stay awake, screen recording, reminders and dictation configuration.
   The legacy hover-to-reveal indicator strip is hidden on every monitor while
   Velunori is active. Its saved configuration is preserved for other bars.
-- Display, power and sound move from separate bar icons to Control Center
-  shortcuts. Their existing Omarchy panels remain available, anchored at the
-  Control Center button on the relevant monitor.
+- Sound has an inline volume slider and mute control. Displays have a monitor
+  selector, enable/disable control and per-monitor brightness slider where
+  supported. The popup scrolls on smaller screens. Advanced Omarchy panels
+  remain available; battery details appear only when a battery is present.
 
 ![Appearance settings](docs/settings-preview.png)
 
@@ -69,6 +70,17 @@ System controls act immediately, independently of Apply/Cancel for appearance.
 The first three switches use Omarchy's live service state. Recording, reminders
 and dictation launch the same flows as the former indicator buttons; launching
 one closes Settings. Status probes run only while the System tab is visible.
+
+Sound uses the existing Omarchy audio backend, so the mixer and hardware-key
+volume changes stay synchronized. Display controls reuse its monitor state and
+enable/disable actions. Brightness queries and writes name the selected output
+explicitly through `omarchy-brightness-display`; unsupported hardware disables
+the slider. Writes are debounced and serialized, preserving the selected output
+even if another monitor is selected while a write is pending. The panel refuses
+to disable the last active display.
+
+The session checker skips the battery panel on desktops without a battery;
+its presence in the saved layout alone does not mean it can be opened.
 
 ![System controls](docs/system-preview.png)
 

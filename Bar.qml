@@ -6,6 +6,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls as Controls
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
@@ -59,6 +60,17 @@ Item {
     accentName: appearance.accent, motion: appearance.motion})
   readonly property var controlCenterEntries: BarModel.hostedControls(Util.normalizeLayout(barConfig.layout || {}))
   property var settingsAnchors: []
+
+  function hostedWidget(id) {
+    var anchorWindow = targetWindow(settingsOwner.anchorItem)
+    var fallback = null
+    for (var slot of moduleSlots) {
+      if (slot.region !== "control-center" || slot.moduleName !== id || !slot.activeItem) continue
+      if (!fallback) fallback = slot.activeItem
+      if (anchorWindow && sameWindow(slotWindow(slot), anchorWindow)) return slot.activeItem
+    }
+    return fallback
+  }
 
   function registerSettingsAnchor(anchor) {
     if (settingsAnchors.indexOf(anchor) === -1) settingsAnchors = settingsAnchors.concat([anchor])
@@ -126,22 +138,28 @@ Item {
         root.requestPopout(settingsOwner)
       }
       function finish() { settingsContent.active = false }
-      PanelKeyCatcher {
+      Item {
         id: settingsKeys
         anchors.fill: parent
-        onCloseRequested: settingsOwner.close()
+        focus: true
+        Keys.onEscapePressed: settingsOwner.close()
         Flickable {
           anchors.fill: parent
           contentWidth: width
           contentHeight: settingsContent.implicitHeight
           clip: true
           boundsBehavior: Flickable.StopAtBounds
+          Controls.ScrollBar.vertical: Controls.ScrollBar { policy: Controls.ScrollBar.AsNeeded }
           SettingsContent {
             id: settingsContent
             width: parent.width
             height: implicitHeight
             shell: root.shell
-            availablePanels: root.controlCenterEntries.map(function(entry) { return root.entryId(entry) })
+            audioBackend: root.hostedWidget("omarchy.audio")
+            monitorBackend: root.hostedWidget("omarchy.monitor")
+            preferredMonitor: settingsOwner.anchorItem && root.targetWindow(settingsOwner.anchorItem)
+              ? root.targetWindow(settingsOwner.anchorItem).screen.name : ""
+            availablePanels: BarModel.availableHostedPanels(root.moduleSlots)
             onCommandRequested: function(argv) { Quickshell.execDetached(argv) }
             onCloseRequested: settingsOwner.close()
             onPreviewRequested: function(value) { root.previewAppearance = value }
@@ -171,7 +189,7 @@ Item {
     function hideSettings(): void { settingsOwner.close() }
     function status(): string {
       return JSON.stringify({style: root.appearance.style, ready: root.hostReady, controlCenterOpened: settingsOwner.opened,
-        availableControlPanels: root.controlCenterEntries.map(function(entry) { return root.entryId(entry) }),
+        availableControlPanels: BarModel.availableHostedPanels(root.moduleSlots),
         activePanel: root.activePopout && "moduleName" in root.activePopout ? root.activePopout.moduleName : "",
         widgets: root.debugBarGeometry()})
     }

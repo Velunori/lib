@@ -13,6 +13,9 @@ Item {
 
     property var shell: null
     property var availablePanels: []
+    property var audioBackend: null
+    property var monitorBackend: null
+    property string preferredMonitor: ""
     property string activePage: "system"
     signal commandRequested(var argv)
     signal closeRequested()
@@ -150,25 +153,26 @@ Item {
                 font.pixelSize: 12; wrapMode: Text.WordWrap
             }
             }
-            RowLayout {
+            AudioControls {
                 visible: root.activePage === "system"
                 Layout.fillWidth: true
-                Repeater {
-                    model: [
-                        {id: "omarchy.monitor", title: "Display"},
-                        {id: "omarchy.power", title: "Power"},
-                        {id: "omarchy.audio", title: "Sound"}
-                    ]
-                    delegate: ActionButton {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        implicitWidth: 80
-                        text: modelData.title
-                        accent: root.accent
-                        enabled: root.availablePanels.indexOf(modelData.id) !== -1
-                        onClicked: root.panelRequested(modelData.id)
-                    }
-                }
+                backend: root.audioBackend
+                accent: root.accent
+                onAdvancedRequested: root.panelRequested("omarchy.audio")
+            }
+            DisplayControls {
+                visible: root.activePage === "system"
+                Layout.fillWidth: true
+                backend: root.monitorBackend
+                preferredMonitor: root.preferredMonitor
+                active: root.active && root.activePage === "system"
+                accent: root.accent
+                onAdvancedRequested: root.panelRequested("omarchy.monitor")
+            }
+            ActionButton {
+                visible: root.activePage === "system" && root.availablePanels.indexOf("omarchy.power") !== -1
+                text: "Battery details"; accent: root.accent
+                onClicked: root.panelRequested("omarchy.power")
             }
             GridLayout {
                 visible: root.activePage === "system"
@@ -179,6 +183,7 @@ Item {
                     delegate: SystemControlCard {
                         required property var modelData
                         Layout.fillWidth: true
+                        compact: true
                         entry: modelData
                         accent: root.accent
                         onActivated: function(id) { desktopControls.execute(id) }

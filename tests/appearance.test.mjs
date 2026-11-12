@@ -26,6 +26,20 @@ test('hardware panels retain their settings in hidden hosts instead of duplicati
     assert.equal(layout.right.length, 4);
 });
 
+test('unavailable battery panel is excluded while duplicate monitor hosts collapse', () => {
+    const widget = {open() {}, close() {}};
+    const slots = [
+        {region: 'control-center', moduleName: 'omarchy.monitor', activeItem: widget},
+        {region: 'control-center', moduleName: 'omarchy.monitor', activeItem: widget},
+        {region: 'control-center', moduleName: 'omarchy.power', activeItem: {...widget, batteryPresent: false}},
+        {region: 'control-center', moduleName: 'omarchy.audio', activeItem: widget},
+        {region: 'control-center', moduleName: 'loading', activeItem: null}
+    ];
+    assert.equal(JSON.stringify(hostModel.availableHostedPanels(slots)), JSON.stringify(['omarchy.monitor', 'omarchy.audio']));
+    slots[2].activeItem.batteryPresent = true;
+    assert.equal(hostModel.availableHostedPanels(slots).includes('omarchy.power'), true);
+});
+
 test('invalid and older settings fall back without dropping known values', () => {
     assert.deepEqual(normalize(null), { style: 'island', accent: 'lavender', motion: true });
     assert.deepEqual(normalize({ style: 'unknown', accent: '#bad', motion: 0 }), normalize(null));
