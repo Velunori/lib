@@ -4,6 +4,7 @@ import "Appearance.js" as Appearance
 QtObject {
     property string accentName: "lavender"
     readonly property color accent: Appearance.accentColor(accentName)
+    readonly property color secondaryAccent: accentName === "lavender" ? "#a0ddbf" : "#c4aff1"
     readonly property color text: "#eeedf3"
     readonly property color muted: "#a4a2b1"
     readonly property color background: "#202026"

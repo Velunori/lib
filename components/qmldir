@@ -1,12 +1,6 @@
 ActionButton 1.0 ActionButton.qml
-SettingsWindow 1.0 SettingsWindow.qml
-SettingsContent 1.0 SettingsContent.qml
 StyleCard 1.0 StyleCard.qml
 StylePreview 1.0 StylePreview.qml
 TooltipBubble 1.0 TooltipBubble.qml
 Workspaces 1.0 Workspaces.qml
-SystemControls 1.0 SystemControls.qml
-SystemControlCard 1.0 SystemControlCard.qml
-AudioControls 1.0 AudioControls.qml
-DisplayControls 1.0 DisplayControls.qml
 ControlSlider 1.0 ControlSlider.qml

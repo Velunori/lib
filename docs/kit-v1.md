@@ -52,3 +52,12 @@ versioned interface. Installers must validate the dependency before enabling a
 plugin; Omarchy does not currently provide dependency installation for this kit.
 Missing core is an installation error, rather than a reason to duplicate its
 colors and components into every plugin.
+
+## Additions in core 0.4.0
+
+`Slider`, `Toggle`, `Surface`, `Choice`, and `AppearanceEditor` provide shared
+controls. Theme also exposes `secondaryAccent` for paired traffic graphs.
+Only `velunori.control-center` receives the scoped `desktopState` and
+`setDesktopToggle`, `previewAppearance`, `applyAppearance`,
+`clearAppearancePreview` callbacks. Other plugins receive no mutation callbacks.
+No device service objects cross this facade. Control Center requires core 0.4.0.

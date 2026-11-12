@@ -2,3 +2,8 @@ Theme 1.0 Theme.qml
 Button 1.0 Button.qml
 Panel 1.0 Panel.qml
 BarApi 1.0 BarApi.qml
+Slider 1.0 Slider.qml
+Toggle 1.0 Toggle.qml
+Surface 1.0 Surface.qml
+Choice 1.0 Choice.qml
+AppearanceEditor 1.0 AppearanceEditor.qml

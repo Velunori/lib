@@ -1,33 +1,7 @@
-// Hide the legacy indicator strip only in Velunori. Keep the saved layout
-// intact so switching to another bar restores its configured indicators.
-function isHostedControl(entry) {
-  return ["omarchy.monitor", "omarchy.power", "omarchy.audio"].indexOf(entryId(entry)) !== -1
-}
-
+// Velunori renders these controls in its separate Control Center plugin.
 function withoutDesktopControls(entries) {
-  return entries.filter(function(entry) { return entryId(entry) !== "omarchy.indicators" && !isHostedControl(entry) })
-}
-
-function hostedControls(layout) {
-  var entries = []
-  for (var section of ["left", "center", "right"]) {
-    for (var entry of (layout[section] || [])) {
-      if (isHostedControl(entry)) entries.push(entry)
-    }
-  }
-  return entries
-}
-
-function availableHostedPanels(slots) {
-  var ids = []
-  for (var slot of slots) {
-    if (slot.region !== "control-center") continue
-    var widget = slot.activeItem
-    if (!widget || typeof widget.open !== "function" || typeof widget.close !== "function") continue
-    if (slot.moduleName === "omarchy.power" && widget.batteryPresent !== true) continue
-    if (ids.indexOf(slot.moduleName) === -1) ids.push(slot.moduleName)
-  }
-  return ids
+  var ids = ["omarchy.indicators", "omarchy.monitor", "omarchy.power", "omarchy.audio", "omarchy.network"]
+  return entries.filter(function(entry) { return ids.indexOf(entryId(entry)) === -1 })
 }
 
 function isPlainObject(value) {
@@ -243,8 +217,6 @@ function nearestDropTarget(candidates, point, vertical) {
 if (typeof module !== "undefined") {
   module.exports = {
     withoutDesktopControls: withoutDesktopControls,
-    hostedControls: hostedControls,
-    availableHostedPanels: availableHostedPanels,
     isDrawnSlot: isDrawnSlot,
     pickDrawnSlot: pickDrawnSlot,
     pickPanelSlot: pickPanelSlot,

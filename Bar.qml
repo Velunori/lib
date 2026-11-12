@@ -58,20 +58,32 @@ Item {
 
   readonly property var velunori: ({apiVersion: 1, style: appearance.style,
     accentName: appearance.accent, motion: appearance.motion})
-  readonly property var controlCenterEntries: BarModel.hostedControls(Util.normalizeLayout(barConfig.layout || {}))
+  readonly property bool hasControlCenter: ["left", "center", "right"].some(function(section) {
+    return (barConfig.layout && barConfig.layout[section] || []).some(function(entry) { return root.entryId(entry) === "velunori.control-center" })
+  })
   property var settingsAnchors: []
-
-  function hostedWidget(id) {
-    var anchorWindow = targetWindow(settingsOwner.anchorItem)
-    var fallback = null
-    for (var slot of moduleSlots) {
-      if (slot.region !== "control-center" || slot.moduleName !== id || !slot.activeItem) continue
-      if (!fallback) fallback = slot.activeItem
-      if (anchorWindow && sameWindow(slotWindow(slot), anchorWindow)) return slot.activeItem
-    }
-    return fallback
+  readonly property var desktopNightlight: shell ? shell.firstPartyServiceFor("omarchy.nightlight") : null
+  readonly property var desktopNotifications: shell ? shell.firstPartyServiceFor("omarchy.notifications") : null
+  readonly property var desktopIdle: shell ? shell.firstPartyServiceFor("omarchy.idle") : null
+  readonly property var desktopState: ({
+    nightlight: desktopNightlight ? desktopNightlight.enabled : false, nightlightAvailable: !!desktopNightlight,
+    dnd: desktopNotifications ? desktopNotifications.doNotDisturb : false, dndAvailable: !!desktopNotifications,
+    stayAwake: desktopIdle ? desktopIdle.stayAwake : false, stayAwakeAvailable: !!desktopIdle
+  })
+  function setDesktopToggle(name, enabled) {
+    if (typeof enabled !== "boolean") return false
+    if (name === "nightlight" && desktopNightlight) desktopNightlight.setNightlight(enabled)
+    else if (name === "dnd" && desktopNotifications) desktopNotifications.setDoNotDisturb(enabled)
+    else if (name === "stayAwake" && desktopIdle) desktopIdle.setIdleEnabled(!enabled)
+    else return false
+    return true
   }
-
+  function controlCenterWidget() { return hasControlCenter ? findPanelWidget("velunori.control-center") : null }
+  function closeSettings() {
+    var widget = controlCenterWidget()
+    if (widget) widget.close()
+    settingsOwner.close()
+  }
   function registerSettingsAnchor(anchor) {
     if (settingsAnchors.indexOf(anchor) === -1) settingsAnchors = settingsAnchors.concat([anchor])
   }
@@ -83,6 +95,8 @@ Item {
     settingsAnchors = settingsAnchors.filter(function(item) { return item !== anchor })
   }
   function openSettings(anchor) {
+    var controlCenter = controlCenterWidget()
+    if (controlCenter) { controlCenter.open(); return }
     var selected = anchor || null
     var focused = focusedScreenName()
     if (!selected) {
@@ -133,11 +147,11 @@ Item {
       contentHeight: fittedContentHeight(settingsContent.implicitHeight)
       focusTarget: settingsKeys
       function begin() {
-        settingsContent.open(root.savedAppearance)
+        settingsContent.reset(root.savedAppearance)
         settingsOwner.opened = true
         root.requestPopout(settingsOwner)
       }
-      function finish() { settingsContent.active = false }
+      function finish() { root.previewAppearance = null }
       Item {
         id: settingsKeys
         anchors.fill: parent
@@ -150,31 +164,16 @@ Item {
           clip: true
           boundsBehavior: Flickable.StopAtBounds
           Controls.ScrollBar.vertical: Controls.ScrollBar { policy: Controls.ScrollBar.AsNeeded }
-          SettingsContent {
+          Velunori.AppearanceEditor {
             id: settingsContent
             width: parent.width
             height: implicitHeight
-            shell: root.shell
-            audioBackend: root.hostedWidget("omarchy.audio")
-            monitorBackend: root.hostedWidget("omarchy.monitor")
-            preferredMonitor: settingsOwner.anchorItem && root.targetWindow(settingsOwner.anchorItem)
-              ? root.targetWindow(settingsOwner.anchorItem).screen.name : ""
-            availablePanels: BarModel.availableHostedPanels(root.moduleSlots)
-            onCommandRequested: function(argv) { Quickshell.execDetached(argv) }
-            onCloseRequested: settingsOwner.close()
             onPreviewRequested: function(value) { root.previewAppearance = value }
-            onCancelRequested: root.previewAppearance = null
-            onPanelRequested: function(id) {
-              settingsOwner.close()
-              root.summonBarWidget(id)
-            }
+            onCancelRequested: settingsOwner.close()
             onApplyRequested: function(value) {
               if (!root.shell || !root.shell.mutateShellConfig(function(config) {
                 config.bar.velunori = Appearance.normalize(value)
-              })) {
-                errorText = "Could not save appearance. Your preview has not been applied."
-                return
-              }
+              })) { errorText = "Could not save appearance."; return }
               settingsOwner.close()
             }
           }
@@ -186,10 +185,11 @@ Item {
   IpcHandler {
     target: "velunori"
     function settings(): void { root.openSettings() }
-    function hideSettings(): void { settingsOwner.close() }
+    function hideSettings(): void { root.closeSettings() }
     function status(): string {
-      return JSON.stringify({style: root.appearance.style, ready: root.hostReady, controlCenterOpened: settingsOwner.opened,
-        availableControlPanels: BarModel.availableHostedPanels(root.moduleSlots),
+      return JSON.stringify({style: root.appearance.style, ready: root.hostReady, controlCenterOpened: root.controlCenterWidget() ? root.controlCenterWidget().opened : settingsOwner.opened,
+        coreVersion: "0.4.0",
+        availableControlPanels: [],
         activePanel: root.activePopout && "moduleName" in root.activePopout ? root.activePopout.moduleName : "",
         widgets: root.debugBarGeometry()})
     }
@@ -311,6 +311,7 @@ Item {
 
   function bindPluginBarApi(api) {
     if (!api) return
+    api.desktopState = Qt.binding(function() { return JSON.parse(JSON.stringify(root.desktopState)) })
     api.velunori = Qt.binding(function() {
       return { apiVersion: 1, style: root.appearance.style, accentName: root.appearance.accent, motion: root.appearance.motion }
     })
@@ -466,6 +467,15 @@ Item {
           ? root.moduleWidgets(moduleName) : []
       },
       _run: function(command) { root.run(command) },
+      _desktopToggle: key === "velunori.control-center" ? function(name, enabled) { return root.setDesktopToggle(name, enabled) } : null,
+      _previewAppearance: key === "velunori.control-center" ? function(value) { root.previewAppearance = Appearance.normalize(value); return true } : null,
+      _applyAppearance: key === "velunori.control-center" ? function(value) {
+        if (!root.shell) return false
+        var result = root.shell.mutateShellConfig(function(config) { config.bar.velunori = Appearance.normalize(value) })
+        if (result) root.previewAppearance = null
+        return result
+      } : null,
+      _clearAppearance: key === "velunori.control-center" ? function() { root.previewAppearance = null } : null,
       _setCenterHoverRevealSuppressed: function(value) {
         root.centerHoverRevealSuppressed = !!value
       }
@@ -764,9 +774,9 @@ Item {
   function normalizeLayout(layout) {
     var normalized = Util.normalizeLayout(Util.isPlainObject(layout) ? layout : fallbackBarConfig.layout)
     return {
-      left:   pinTrayToInner(BarModel.withoutDesktopControls(normalized.left),   "left"),
-      center: pinTrayToInner(BarModel.withoutDesktopControls(normalized.center), "center"),
-      right:  pinTrayToInner(BarModel.withoutDesktopControls(normalized.right),  "right")
+      left:   pinTrayToInner(root.hasControlCenter ? BarModel.withoutDesktopControls(normalized.left) : normalized.left,   "left"),
+      center: pinTrayToInner(root.hasControlCenter ? BarModel.withoutDesktopControls(normalized.center) : normalized.center, "center"),
+      right:  pinTrayToInner(root.hasControlCenter ? BarModel.withoutDesktopControls(normalized.right) : normalized.right,  "right")
     }
   }
 
@@ -1625,7 +1635,7 @@ Item {
           Rectangle {
             id: rightCapsule
             x: floatingLayout.spread ? capsuleViewport.width - width - tokens.edgeGap : leftCapsule.width + centerCapsule.width + floatingLayout.sectionGap * 2
-            width: rightWidgets.width + settingsButton.width + 32
+            width: rightWidgets.width + (settingsButton.visible ? 60 : 28)
             height: tokens.barHeight
             radius: tokens.radius
             color: floatingLayout.spread ? tokens.background : "transparent"
@@ -1635,6 +1645,7 @@ Item {
               id: settingsButton
               anchors.right: parent.right; anchors.rightMargin: 12
               anchors.verticalCenter: parent.verticalCenter
+              visible: !root.controlCenterWidget()
               width: 28; height: 28; radius: 10
               readonly property bool selected: settingsOwner.opened && settingsOwner.anchorItem === settingsButton
               readonly property bool tooltipHovered: settingsHover.hovered
@@ -1646,7 +1657,7 @@ Item {
                 onHoveredChanged: {
                   if (!hovered) root.hideTooltip(settingsButton)
                   else Qt.callLater(function() {
-                    if (settingsHover.hovered) root.showTooltip(settingsButton, "Velunori Control Center")
+                    if (settingsHover.hovered) root.showTooltip(settingsButton, "Velunori Appearance")
                   })
                 }
               }
@@ -1662,7 +1673,7 @@ Item {
                 onClicked: root.openSettings(settingsButton)
               }
               Accessible.role: Accessible.Button
-              Accessible.name: "Velunori Control Center"
+              Accessible.name: "Velunori Appearance"
               Component.onCompleted: {
                 root.registerSettingsAnchor(settingsButton)
                 root.registerClickTarget(settingsButton)
@@ -1671,16 +1682,7 @@ Item {
                 root.unregisterClickTarget(settingsButton)
                 root.unregisterSettingsAnchor(settingsButton)
               }
-              Repeater {
-                model: root.controlCenterEntries
-                ModuleSlot {
-                  required property var modelData
-                  entry: modelData
-                  region: "control-center"
-                  x: settingsButton.width / 2
-                  visible: false
-                }
-              }
+
             }
           }
         }

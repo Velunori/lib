@@ -20,7 +20,10 @@ ln -s "$shell_root/Ui" "$runtime_dir/imports/qs/Ui"
   }
 ln -s "$PWD/components" "$runtime_dir/components"
 ln -s "$PWD/design" "$runtime_dir/design"
-sed 's|"../components"|"components"|' tests/settings.qml > "$runtime_dir/shell.qml"
+ln -s "$PWD/kit" "$runtime_dir/kit"
+ln -s "$shell_root/Commons" "$runtime_dir/Commons"
+ln -s "$shell_root/Ui" "$runtime_dir/Ui"
+sed -e 's|"../components"|"components"|' -e 's|"../kit"|"kit"|' tests/settings.qml > "$runtime_dir/shell.qml"
 env -u WAYLAND_DISPLAY -u DISPLAY XDG_RUNTIME_DIR="$runtime_dir" \
   QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic \
   QT_QUICK_CONTROLS_STYLE=Basic QT_QUICK_BACKEND=software \

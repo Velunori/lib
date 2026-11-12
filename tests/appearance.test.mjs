@@ -17,29 +17,6 @@ test('desktop controls leave the rendered strip without changing saved widget or
     assert.equal(JSON.stringify(saved), before);
 });
 
-test('hardware panels retain their settings in hidden hosts instead of duplicating bar icons', () => {
-    const layout = {left: [], center: [{id: 'velunori.clock'}], right: [
-        {id: 'omarchy.monitor', custom: true}, {id: 'omarchy.audio'},
-        {id: 'omarchy.power'}, {id: 'omarchy.tray'}]};
-    assert.equal(JSON.stringify(hostModel.hostedControls(layout)), JSON.stringify(layout.right.slice(0, 3)));
-    assert.equal(JSON.stringify(hostModel.withoutDesktopControls(layout.right)), JSON.stringify([layout.right[3]]));
-    assert.equal(layout.right.length, 4);
-});
-
-test('unavailable battery panel is excluded while duplicate monitor hosts collapse', () => {
-    const widget = {open() {}, close() {}};
-    const slots = [
-        {region: 'control-center', moduleName: 'omarchy.monitor', activeItem: widget},
-        {region: 'control-center', moduleName: 'omarchy.monitor', activeItem: widget},
-        {region: 'control-center', moduleName: 'omarchy.power', activeItem: {...widget, batteryPresent: false}},
-        {region: 'control-center', moduleName: 'omarchy.audio', activeItem: widget},
-        {region: 'control-center', moduleName: 'loading', activeItem: null}
-    ];
-    assert.equal(JSON.stringify(hostModel.availableHostedPanels(slots)), JSON.stringify(['omarchy.monitor', 'omarchy.audio']));
-    slots[2].activeItem.batteryPresent = true;
-    assert.equal(hostModel.availableHostedPanels(slots).includes('omarchy.power'), true);
-});
-
 test('invalid and older settings fall back without dropping known values', () => {
     assert.deepEqual(normalize(null), { style: 'island', accent: 'lavender', motion: true });
     assert.deepEqual(normalize({ style: 'unknown', accent: '#bad', motion: 0 }), normalize(null));

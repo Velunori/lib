@@ -8,14 +8,9 @@ A floating desktop shell for Omarchy. One visual language, two bar layouts.
   Lavender / Mint / Pearl accents, and Apply / Cancel.
 - Existing widget order and settings remain in Omarchy's `bar.layout`.
 - Built-in workspaces use dots and an accent pill for the active workspace.
-- The anchored Control Center has an Appearance tab and a System tab for night light, do not
-  disturb, stay awake, screen recording, reminders and dictation configuration.
-  The legacy hover-to-reveal indicator strip is hidden on every monitor while
-  Velunori is active. Its saved configuration is preserved for other bars.
-- Sound has an inline volume slider and mute control. Displays have a monitor
-  selector, enable/disable control and per-monitor brightness slider where
-  supported. The popup scrolls on smaller screens. Advanced Omarchy panels
-  remain available; battery details appear only when a battery is present.
+- Device controls live in the separate **velunori.control-center** plugin.
+  Core provides the shared design kit, scoped appearance API and desktop switches.
+  Without Control Center, the settings button opens the appearance editor.
 
 ![Appearance settings](docs/settings-preview.png)
 
@@ -55,8 +50,7 @@ omarchy-shell velunori settings
 
 IPC opens it on the focused monitor. Escape, outside click and clicking its
 button again dismiss it. Opening another panel closes it. Appearance preview
-is discarded on dismissal unless Apply was used. The desktop does not open a
-separate settings window; `SettingsWindow.qml` is only a headless preview harness.
+is discarded on dismissal unless Apply was used. The desktop uses an anchored popup.
 
 Selecting a card previews that layout immediately. Apply persists it; Cancel,
 Escape, or closing the window discards the preview. Settings live under
@@ -66,23 +60,12 @@ Escape, or closing the window discards the preview. Settings live under
 { "style": "island", "accent": "lavender", "motion": true }
 ```
 
-System controls act immediately, independently of Apply/Cancel for appearance.
-The first three switches use Omarchy's live service state. Recording, reminders
-and dictation launch the same flows as the former indicator buttons; launching
-one closes Settings. Status probes run only while the System tab is visible.
+## Control Center
 
-Sound uses the existing Omarchy audio backend, so the mixer and hardware-key
-volume changes stay synchronized. Display controls reuse its monitor state and
-enable/disable actions. Brightness queries and writes name the selected output
-explicitly through `omarchy-brightness-display`; unsupported hardware disables
-the slider. Writes are debounced and serialized, preserving the selected output
-even if another monitor is selected while a write is pending. The panel refuses
-to disable the last active display.
-
-The session checker skips the battery panel on desktops without a battery;
-its presence in the saved layout alone does not mean it can be opened.
-
-![System controls](docs/system-preview.png)
+Use core **0.4.0** with the sibling `control-center` repository. Its installer
+backs up the widget layout, replaces legacy device widgets and restarts the
+shell. Audio, display and network panels then share the Velunori popup.
+See `../control-center/README.md` for installation and display rollback behavior.
 
 ## Return to the original bar
 
