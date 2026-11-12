@@ -6,6 +6,25 @@ import test from 'node:test';
 const model = vm.createContext({});
 vm.runInContext(fs.readFileSync(new URL('../design/Appearance.js', import.meta.url), 'utf8'), model);
 const normalize = value => JSON.parse(JSON.stringify(model.normalize(value)));
+const hostModel = vm.createContext({});
+vm.runInContext(fs.readFileSync(new URL('../BarModel.js', import.meta.url), 'utf8'), hostModel);
+
+test('desktop controls leave the rendered strip without changing saved widget order or settings', () => {
+    const saved = [{id: 'omarchy.indicators', items: ['Dnd']}, {id: 'velunori.clock'},
+        {id: 'omarchy.indicators', alwaysShow: true}, {id: 'omarchy.weather'}];
+    const before = JSON.stringify(saved);
+    assert.equal(JSON.stringify(hostModel.withoutDesktopControls(saved)), JSON.stringify([saved[1], saved[3]]));
+    assert.equal(JSON.stringify(saved), before);
+});
+
+test('hardware panels retain their settings in hidden hosts instead of duplicating bar icons', () => {
+    const layout = {left: [], center: [{id: 'velunori.clock'}], right: [
+        {id: 'omarchy.monitor', custom: true}, {id: 'omarchy.audio'},
+        {id: 'omarchy.power'}, {id: 'omarchy.tray'}]};
+    assert.equal(JSON.stringify(hostModel.hostedControls(layout)), JSON.stringify(layout.right.slice(0, 3)));
+    assert.equal(JSON.stringify(hostModel.withoutDesktopControls(layout.right)), JSON.stringify([layout.right[3]]));
+    assert.equal(layout.right.length, 4);
+});
 
 test('invalid and older settings fall back without dropping known values', () => {
     assert.deepEqual(normalize(null), { style: 'island', accent: 'lavender', motion: true });

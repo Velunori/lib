@@ -38,9 +38,57 @@ ShellRoot {
     }
     Workspaces { id: workspaceStrip; width: 200; height: 40; bar: clickHost }
 
+    QtObject {
+        id: nightlight
+        property bool enabled: false
+        function setNightlight(value) { enabled = value; }
+    }
+    QtObject {
+        id: notifications
+        property bool doNotDisturb: false
+        function setDoNotDisturb(value) { doNotDisturb = value; }
+    }
+    QtObject {
+        id: idle
+        property bool stayAwake: false
+        function setIdleEnabled(value) { stayAwake = !value; }
+    }
+    QtObject {
+        id: systemHost
+        function firstPartyServiceFor(id) {
+            if (id === "omarchy.nightlight") return nightlight;
+            if (id === "omarchy.notifications") return notifications;
+            if (id === "omarchy.idle") return idle;
+            return null;
+        }
+    }
+    property var systemCommand: []
+    SystemControls { id: systemControls; shell: systemHost; onCommandRequested: function(argv) { systemCommand = argv; } }
+
     Timer {
         interval: 100; running: true
         onTriggered: {
+            systemControls.execute("nightlight");
+            systemControls.execute("dnd");
+            systemControls.execute("awake");
+            check(nightlight.enabled && notifications.doNotDisturb && idle.stayAwake, "system toggles enabled");
+            check(systemControls.entries[0].state === "On", "system status follows service");
+            systemControls.execute("nightlight");
+            systemControls.execute("dnd");
+            systemControls.execute("awake");
+            check(!nightlight.enabled && !notifications.doNotDisturb && !idle.stayAwake, "system toggles disabled");
+            systemControls.execute("recording");
+            check(systemCommand[0] === "omarchy-menu", "start recording action");
+            systemControls.recording = true;
+            systemControls.execute("recording");
+            check(systemCommand[1] === "--stop-recording", "stop recording action");
+            systemControls.execute("reminders");
+            check(systemCommand[1] === "-i", "create reminder action");
+            systemControls.reminderCount = 2;
+            systemControls.execute("reminders");
+            check(systemCommand[1] === "show", "view reminders action");
+            systemControls.execute("dictation");
+            check(systemCommand[0] === "omarchy-voxtype-config", "dictation settings action");
             var row = workspaceStrip.children[0];
             check(Math.abs(row.y + row.height / 2 - workspaceStrip.height / 2) < 0.01, "workspace vertical alignment at 40px");
             workspaceStrip.height = 48;

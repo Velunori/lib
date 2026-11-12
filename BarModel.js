@@ -1,3 +1,23 @@
+// Hide the legacy indicator strip only in Velunori. Keep the saved layout
+// intact so switching to another bar restores its configured indicators.
+function isHostedControl(entry) {
+  return ["omarchy.monitor", "omarchy.power", "omarchy.audio"].indexOf(entryId(entry)) !== -1
+}
+
+function withoutDesktopControls(entries) {
+  return entries.filter(function(entry) { return entryId(entry) !== "omarchy.indicators" && !isHostedControl(entry) })
+}
+
+function hostedControls(layout) {
+  var entries = []
+  for (var section of ["left", "center", "right"]) {
+    for (var entry of (layout[section] || [])) {
+      if (isHostedControl(entry)) entries.push(entry)
+    }
+  }
+  return entries
+}
+
 function isPlainObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
@@ -210,6 +230,8 @@ function nearestDropTarget(candidates, point, vertical) {
 
 if (typeof module !== "undefined") {
   module.exports = {
+    withoutDesktopControls: withoutDesktopControls,
+    hostedControls: hostedControls,
     isDrawnSlot: isDrawnSlot,
     pickDrawnSlot: pickDrawnSlot,
     pickPanelSlot: pickPanelSlot,

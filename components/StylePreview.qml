@@ -63,7 +63,7 @@ Rectangle {
                 model: 4
                 Rectangle {
                     required property int index
-                    width: index % 2 === 0 ? 48 : 66; height: 3; radius: 1
+                    width: Math.min(index % 2 === 0 ? 48 : 66, parent.parent.width - 20); height: 3; radius: 1
                     color: index === 0 ? root.accent : "#5d596c"
                 }
             }
@@ -79,7 +79,7 @@ Rectangle {
                 model: 4
                 Rectangle {
                     required property int index
-                    width: index % 2 === 0 ? 62 : 44; height: 3; radius: 1; color: "#5d596c"
+                    width: Math.min(index % 2 === 0 ? 62 : 44, parent.parent.width - 20); height: 3; radius: 1; color: "#5d596c"
                 }
             }
         }

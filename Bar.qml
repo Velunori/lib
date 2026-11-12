@@ -55,31 +55,124 @@ Item {
     function onRevisionChanged() { root.syncWidgetCatalog() }
   }
 
-  function openSettings() {
-    if (appearanceSettings.visible) return
-    appearanceSettings.open(savedAppearance)
+  readonly property var velunori: ({apiVersion: 1, style: appearance.style,
+    accentName: appearance.accent, motion: appearance.motion})
+  readonly property var controlCenterEntries: BarModel.hostedControls(Util.normalizeLayout(barConfig.layout || {}))
+  property var settingsAnchors: []
+
+  function registerSettingsAnchor(anchor) {
+    if (settingsAnchors.indexOf(anchor) === -1) settingsAnchors = settingsAnchors.concat([anchor])
+  }
+  function unregisterSettingsAnchor(anchor) {
+    if (settingsOwner.anchorItem === anchor) {
+      settingsOwner.close()
+      settingsOwner.anchorItem = null
+    }
+    settingsAnchors = settingsAnchors.filter(function(item) { return item !== anchor })
+  }
+  function openSettings(anchor) {
+    var selected = anchor || null
+    var focused = focusedScreenName()
+    if (!selected) {
+      for (var i = 0; i < settingsAnchors.length; i++) {
+        var window = targetWindow(settingsAnchors[i])
+        if (!selected || (window && window.screen && window.screen.name === focused))
+          selected = settingsAnchors[i]
+      }
+    }
+    if (!selected) return
+    if (settingsOwner.opened && settingsOwner.anchorItem === selected) {
+      if (anchor) settingsOwner.close()
+      return
+    }
+    settingsOwner.close()
+    var existingPanel = controlCenterLoader.item
+    settingsOwner.anchorItem = selected
+    if (existingPanel) existingPanel.begin()
   }
 
-  SettingsWindow {
-    id: appearanceSettings
-    onPreviewRequested: function(value) { root.previewAppearance = value }
-    onCancelRequested: root.previewAppearance = null
-    onApplyRequested: function(value) {
-      if (!root.shell || !root.shell.mutateShellConfig(function(config) {
-        config.bar.velunori = Appearance.normalize(value)
-      })) {
-        errorText = "Could not save appearance. Your preview has not been applied."
-        return
+  Item {
+    id: settingsOwner
+    property var anchorItem: null
+    property bool opened: false
+    function close() {
+      opened = false
+      root.previewAppearance = null
+      if (controlCenterLoader.item) controlCenterLoader.item.finish()
+      root.releasePopout(settingsOwner)
+    }
+    function closeForPopoutSwitch() { close() }
+  }
+  Loader {
+    id: controlCenterLoader
+    active: settingsOwner.anchorItem !== null && root.hostReady
+    sourceComponent: controlCenterComponent
+    onLoaded: item.begin()
+  }
+  Component {
+    id: controlCenterComponent
+    Velunori.Panel {
+      id: settingsPanel
+      bar: root
+      anchorItem: settingsOwner.anchorItem
+      owner: settingsOwner
+      open: settingsOwner.opened
+      contentWidth: Math.min(460, availableCardWidth > 0 ? availableCardWidth : 460)
+      contentHeight: fittedContentHeight(settingsContent.implicitHeight)
+      focusTarget: settingsKeys
+      function begin() {
+        settingsContent.open(root.savedAppearance)
+        settingsOwner.opened = true
+        root.requestPopout(settingsOwner)
       }
-      visible = false
+      function finish() { settingsContent.active = false }
+      PanelKeyCatcher {
+        id: settingsKeys
+        anchors.fill: parent
+        onCloseRequested: settingsOwner.close()
+        Flickable {
+          anchors.fill: parent
+          contentWidth: width
+          contentHeight: settingsContent.implicitHeight
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
+          SettingsContent {
+            id: settingsContent
+            width: parent.width
+            height: implicitHeight
+            shell: root.shell
+            availablePanels: root.controlCenterEntries.map(function(entry) { return root.entryId(entry) })
+            onCommandRequested: function(argv) { Quickshell.execDetached(argv) }
+            onCloseRequested: settingsOwner.close()
+            onPreviewRequested: function(value) { root.previewAppearance = value }
+            onCancelRequested: root.previewAppearance = null
+            onPanelRequested: function(id) {
+              settingsOwner.close()
+              root.summonBarWidget(id)
+            }
+            onApplyRequested: function(value) {
+              if (!root.shell || !root.shell.mutateShellConfig(function(config) {
+                config.bar.velunori = Appearance.normalize(value)
+              })) {
+                errorText = "Could not save appearance. Your preview has not been applied."
+                return
+              }
+              settingsOwner.close()
+            }
+          }
+        }
+      }
     }
   }
 
   IpcHandler {
     target: "velunori"
     function settings(): void { root.openSettings() }
+    function hideSettings(): void { settingsOwner.close() }
     function status(): string {
-      return JSON.stringify({style: root.appearance.style, ready: root.hostReady,
+      return JSON.stringify({style: root.appearance.style, ready: root.hostReady, controlCenterOpened: settingsOwner.opened,
+        availableControlPanels: root.controlCenterEntries.map(function(entry) { return root.entryId(entry) }),
+        activePanel: root.activePopout && "moduleName" in root.activePopout ? root.activePopout.moduleName : "",
         widgets: root.debugBarGeometry()})
     }
   }
@@ -653,9 +746,9 @@ Item {
   function normalizeLayout(layout) {
     var normalized = Util.normalizeLayout(Util.isPlainObject(layout) ? layout : fallbackBarConfig.layout)
     return {
-      left:   pinTrayToInner(normalized.left,   "left"),
-      center: pinTrayToInner(normalized.center, "center"),
-      right:  pinTrayToInner(normalized.right,  "right")
+      left:   pinTrayToInner(BarModel.withoutDesktopControls(normalized.left),   "left"),
+      center: pinTrayToInner(BarModel.withoutDesktopControls(normalized.center), "center"),
+      right:  pinTrayToInner(BarModel.withoutDesktopControls(normalized.right),  "right")
     }
   }
 
@@ -1525,7 +1618,20 @@ Item {
               anchors.right: parent.right; anchors.rightMargin: 12
               anchors.verticalCenter: parent.verticalCenter
               width: 28; height: 28; radius: 10
-              color: settingsPointer.containsMouse ? tokens.surface : "transparent"
+              readonly property bool selected: settingsOwner.opened && settingsOwner.anchorItem === settingsButton
+              readonly property bool tooltipHovered: settingsHover.hovered
+              color: selected || settingsPointer.containsMouse ? tokens.surface : "transparent"
+              border.color: selected ? tokens.accent : "transparent"
+              function triggerPress(button) { if (button === Qt.LeftButton) root.openSettings(settingsButton) }
+              HoverHandler {
+                id: settingsHover
+                onHoveredChanged: {
+                  if (!hovered) root.hideTooltip(settingsButton)
+                  else Qt.callLater(function() {
+                    if (settingsHover.hovered) root.showTooltip(settingsButton, "Velunori Control Center")
+                  })
+                }
+              }
               Image {
                 anchors.centerIn: parent
                 width: 16; height: 16
@@ -1535,10 +1641,28 @@ Item {
               MouseArea {
                 id: settingsPointer
                 anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                onClicked: root.openSettings()
+                onClicked: root.openSettings(settingsButton)
               }
               Accessible.role: Accessible.Button
-              Accessible.name: "Velunori appearance settings"
+              Accessible.name: "Velunori Control Center"
+              Component.onCompleted: {
+                root.registerSettingsAnchor(settingsButton)
+                root.registerClickTarget(settingsButton)
+              }
+              Component.onDestruction: {
+                root.unregisterClickTarget(settingsButton)
+                root.unregisterSettingsAnchor(settingsButton)
+              }
+              Repeater {
+                model: root.controlCenterEntries
+                ModuleSlot {
+                  required property var modelData
+                  entry: modelData
+                  region: "control-center"
+                  x: settingsButton.width / 2
+                  visible: false
+                }
+              }
             }
           }
         }

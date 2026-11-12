@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "velunori.core",
   "name": "Velunori",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "author": "Velunori",
   "description": "Floating Island and Orbit bars with visual appearance settings.",
   "kinds": [
