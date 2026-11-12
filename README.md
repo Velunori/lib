@@ -1,105 +1,86 @@
 # Velunori
 
-A floating desktop shell for Omarchy. One visual language, two bar layouts.
+> A floating bar for Omarchy in two layouts, with the design kit every other Velunori plugin is built on.
 
-- **Island** groups your existing widgets in a centered capsule.
-- **Orbit** separates left, center and right widgets into floating capsules.
-- Appearance settings include drawn previews, live desktop preview, independent
-  Lavender / Mint / Pearl accents, and Apply / Cancel.
-- Existing widget order and settings remain in Omarchy's `bar.layout`.
-- Built-in workspaces use dots and an accent pill for the active workspace.
-- Device controls live in the separate **velunori.control-center** plugin.
-  Core provides the shared design kit, scoped appearance API and desktop switches.
-  Without Control Center, the settings button opens the appearance editor.
+![Appearance settings with the Island and Orbit layouts](docs/preview.png)
 
-![Appearance settings](docs/settings-preview.png)
+## Features
 
-## Status
+- **Island** groups your existing widgets in one centred capsule; **Orbit** splits left, centre and right into three floating capsules.
+- Appearance settings with drawn previews, a live preview on the desktop, three accents (Lavender, Mint, Pearl), an animation switch, and Apply / Cancel.
+- Your widget order and widget settings stay in Omarchy's own `bar.layout`; switching back to the original bar keeps them.
+- Built-in workspaces are drawn as dots with an accent pill for the active one.
+- A design kit (`kit/`) with the theme, panel, buttons, toggles and sliders that the other Velunori plugins import.
 
-Early local implementation, targeting the plugin API installed with **Omarchy
-4.0.6-1**. No system update is required to start testing on that version.
-Settings have been exercised headlessly. The full bar still needs an interactive
-Wayland session check before this can be considered a release.
-The installed Quickshell build has a known scanner-race signature matching the
-observed crash. See [stability status](docs/stability.md) for the evidence,
-import fixes, checks and remaining host-package blocker.
-Headless checks cover settings lifecycle, normalization and collision thresholds,
-plus QML lint. They do not verify layer-shell placement, input masks, shell IPC
-or persistence through the real host. The restricted development environment
-reports an expected IPC-socket error during the headless UI check.
+## Requirements
 
-## Local development
+Omarchy with the shell plugin API. Developed against **Omarchy 4.0.6-1**.
 
-Keep the checkout at `~/dev/Velunori/core`. From a terminal in that directory:
+## Install
 
 ```bash
-bash scripts/check.sh
-bash scripts/install-local.sh
+bash ~/dev/Velunori/core/scripts/install-local.sh
 ```
 
-The installer backs up `shell.json`, links this checkout into
-`~/.config/omarchy/plugins/velunori.core`, and enables the replacement bar.
-It refuses to overwrite another installation. No packaged Omarchy files change.
-The shell watches plugin source for changes.
+The installer backs up `shell.json`, links this checkout into `~/.config/omarchy/plugins/velunori.core` and enables the bar. It refuses to overwrite another installation and changes no packaged Omarchy files.
 
-Click the **settings icon** to open Control Center on that monitor, or run:
-
-```bash
-omarchy-shell velunori settings
-```
-
-IPC opens it on the focused monitor. Escape, outside click and clicking its
-button again dismiss it. Opening another panel closes it. Appearance preview
-is discarded on dismissal unless Apply was used. The desktop uses an anchored popup.
-
-Selecting a card previews that layout immediately. Apply persists it; Cancel,
-Escape, or closing the window discards the preview. Settings live under
-`bar.velunori` in `shell.json`:
-
-```json
-{ "style": "island", "accent": "lavender", "motion": true }
-```
-
-## Control Center
-
-Use core **0.4.0** with the sibling `control-center` repository. Its installer
-backs up the widget layout, replaces legacy device widgets and restarts the
-shell. Audio, display and network panels then share the Velunori popup.
-See `../control-center/README.md` for installation and display rollback behavior.
-
-## Return to the original bar
+Return to the original bar at any time; the widget layout and your Velunori preferences are kept:
 
 ```bash
 omarchy plugin enable omarchy.bar
 ```
 
-This keeps the widget layout and your Velunori preferences. A complete
-pre-installation configuration backup is printed by the installer.
+## Use
 
-## Current scope
+Click the settings icon in the bar, or run `omarchy-shell velunori settings`. With Control Center installed the icon opens it; without it, the icon opens the appearance editor. Selecting a layout previews it immediately. Apply saves it; Cancel, Escape or closing the panel discards the preview.
 
-Top and bottom bars, one per monitor. A previously configured side bar renders
-at the top while Velunori is active. Orbit falls back to a joined capsule when
-the sections would overlap; oversized contents can be dragged horizontally.
-The existing center widget group is centered as a group, rather than pinning
-one widget via `centerAnchor`.
+Settings are stored under `bar.velunori` in `shell.json`:
 
-Existing widget popups and notifications retain their current Omarchy styling.
-Application themes, wallpaper and window decorations are outside this first
-implementation. The concept images describe the longer-term visual direction.
-Compatibility of third-party widgets that require private services needs a
-live session check: replacement bars receive narrower host capabilities.
+```json
+{ "style": "island", "accent": "lavender", "motion": true }
+```
 
-## Shared design foundation
+## Screens
 
-`design/Tokens.qml` defines semantic colors, spacing, radii and bar dimensions.
-`components/` contains the initial reusable controls and layout previews.
-Feature plugins import the public `kit/` API from the sibling installation
-directory `velunori.core`. The clock is the first consumer. See
-[design kit v1](docs/kit-v1.md) for the contract, installation paths and
-compatibility rules. `components/` and `design/` are internal implementation
-details; feature plugins should use `kit/`.
+| Appearance | System |
+| --- | --- |
+| ![Appearance settings](docs/settings-preview.png) | ![System page](docs/system-preview.png) |
 
-The widget host is derived from Omarchy's MIT-licensed bar to preserve its
-loader, widget APIs, drag ordering, popout coordination and tooltips. See
-[third-party notices](THIRD_PARTY_NOTICES.md) for provenance.
+## For plugin authors
+
+Feature plugins import `kit/` from the sibling directory `velunori.core`. `components/` and `design/` are internal. The contract, installation paths and compatibility rules are in [docs/kit-v1.md](docs/kit-v1.md).
+
+`scripts/compose-preview.sh <screenshot> <docs/preview.png>` produces the preview image used at the top of every Velunori README.
+
+## Development
+
+```bash
+bash scripts/check.sh
+```
+
+Checks cover the settings lifecycle, normalisation, collision thresholds and QML lint. They run headlessly and do not verify layer-shell placement, input masks, shell IPC or persistence through the real host; those need a look in the desktop session.
+
+## Limits
+
+- Top and bottom bars, one per monitor. A side bar configured earlier is drawn at the top while Velunori is active.
+- Orbit falls back to a joined capsule when its sections would overlap; oversized contents can be dragged horizontally.
+- Third-party widgets that need private host services may behave differently, because replacement bars receive narrower capabilities from Omarchy.
+- The installed Quickshell build has a known scanner race that can crash the shell. The evidence and the remaining host-package blocker are in [docs/stability.md](docs/stability.md).
+
+## Velunori plugins
+
+Velunori is a set of independent plugins for the [Omarchy](https://omarchy.org) shell. Install only the ones you want; each lives in its own repository and can be removed without touching the others.
+
+| Plugin | What it is |
+| --- | --- |
+| **core** (this repository) | The Island and Orbit bars, the appearance settings and the shared design kit |
+| [clock](https://github.com/velunori/clock) | Clock in the bar with a month calendar |
+| [control-center](https://github.com/velunori/control-center) | Sound, displays, network, capture and reminders in one panel |
+| [notifications](https://github.com/velunori/notifications) | Notification cards and a session history |
+| [menu](https://github.com/velunori/menu) | The Omarchy command menu as a two-pane panel |
+| [update](https://github.com/velunori/update) | A window for `omarchy update` with release notes and live progress |
+| [weather](https://github.com/velunori/weather) | Weather in the bar with a forecast panel |
+
+## License
+
+MIT, see [LICENSE](LICENSE). The widget host is adapted from Omarchy's MIT-licensed bar; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
