@@ -1,4 +1,21 @@
 // A zero hint lets composite widgets paint an indicator for each click target.
+var sections = ["left", "centerBegin", "center", "centerEnd", "right", "tray"];
+function isCenter(region) { return ["centerBegin", "center", "centerEnd"].indexOf(region) !== -1; }
+function normalizeSections(layout, normalizeSection) {
+  var source = layout || {}, result = {};
+  var unified = sections.some(function(region) {
+    return (Array.isArray(source[region]) ? source[region] : []).some(function(entry) { return entryId(entry) === "velunori.control-center"; });
+  });
+  sections.forEach(function(region) {
+    var entries = normalizeSection(Array.isArray(source[region]) ? source[region] : []);
+    if (unified) entries = withoutDesktopControls(entries);
+    // A tray can never contain itself, including malformed external config.
+    if (region === "tray") entries = entries.filter(function(entry) { return entryId(entry) !== "omarchy.tray"; });
+    result[region] = pinTrayToInner(entries, region);
+  });
+  return result;
+}
+
 function panelIndicatorExtent(hint, fallback) {
   return typeof hint === "number" && isFinite(hint) && hint >= 0 ? Math.round(hint) : fallback
 }
@@ -86,7 +103,7 @@ function entriesAfter(entries, name) {
 // a duplicated id makes the push ambiguous.
 function inlineSettingsDelta(current, next) {
   if (!isPlainObject(current) || !isPlainObject(next)) return null
-  var regions = ["left", "center", "right"]
+  var regions = sections
   var counts = {}
   for (var r = 0; r < regions.length; r++) {
     var entries = Array.isArray(next[regions[r]]) ? next[regions[r]] : []

@@ -6,6 +6,7 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 import "." as Kit
+import "PanelGeometry.js" as PanelGeometry
 
 // Layer-shell popup attached to a bar widget icon, designed for
 // click-driven AND keyboard-driven panels (e.g. SUPER+CTRL+W summon).
@@ -52,6 +53,8 @@ PanelWindow {
   property int contentHeight: Style.space(200)
   property var borderSpec: Border.flat(theme.border, 1)
   property bool centerOnBar: false
+  property bool centerOnIsland: false
+  readonly property var positioningAnchor: centerOnIsland ? PanelGeometry.islandAnchor(anchorItem) : anchorItem
   property bool open: false
   property int gap: 8  // distance between bar edge and panel
   property bool popoutSwitching: false
@@ -139,7 +142,7 @@ PanelWindow {
   TransformWatcher {
     id: anchorWatcher
     a: anchorWindow ? anchorWindow.contentItem : null
-    b: anchorItem
+    b: positioningAnchor
   }
 
   // Anchor item's position within the bar's content surface. For a
@@ -149,11 +152,11 @@ PanelWindow {
   // below uses `barH` for the perpendicular axis instead of this y.
   readonly property point anchorScreenPos: {
     anchorWatcher.transform  // reactive dependency
-    if (!anchorItem || !anchorWindow) return Qt.point(0, 0)
-    return anchorItem.mapToItem(anchorWindow.contentItem, 0, 0)
+    if (!positioningAnchor || !anchorWindow) return Qt.point(0, 0)
+    return positioningAnchor.mapToItem(anchorWindow.contentItem, 0, 0)
   }
-  readonly property real anchorW: anchorItem ? anchorItem.width : 0
-  readonly property real anchorH: anchorItem ? anchorItem.height : 0
+  readonly property real anchorW: positioningAnchor ? positioningAnchor.width : 0
+  readonly property real anchorH: positioningAnchor ? positioningAnchor.height : 0
   readonly property real screenW: screen ? screen.width : 0
   readonly property real screenH: screen ? screen.height : 0
   readonly property real availableCardWidth: screenW > 0
@@ -192,9 +195,9 @@ PanelWindow {
   // (centering wrappers, padding). The bar's surface IS aligned to its
   // anchored screen edge, so using `barW`/`barH` gives the right edge
   // regardless of how the bar's internal widgets are positioned. For the
-  // parallel axis (along the bar) the anchor item's reported position is
+  // parallel axis (along the bar) the selected visual anchor's position is
   // still consistent with the bar content origin, so it's accurate for
-  // centering the card under the icon.
+  // centering the card under the icon or its containing capsule.
   readonly property real barW: anchorWindow ? anchorWindow.width : screenW
   readonly property real barH: anchorWindow ? anchorWindow.height : 0
   readonly property point cardOrigin: {

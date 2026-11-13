@@ -8,13 +8,16 @@
 
 - **Island** groups your existing widgets in one centred capsule; **Orbit** splits left, centre and right into three floating capsules.
 - Appearance settings with drawn previews, a live preview on the desktop, three accents (Lavender, Mint, Pearl), an animation switch, and Apply / Cancel.
+- With the standalone Velunori theme active, Apply also synchronizes the saved accent to Chromium through Omarchy’s existing browser policy helper. Preview/Cancel leave Chromium unchanged.
 - Your widget order and widget settings stay in Omarchy's own `bar.layout`; switching back to the original bar keeps them.
+- A shared vector brand mark and logotype, with accent and monochrome exports. The menu launcher uses it in place of the Omarchy glyph. See [branding](docs/branding.md) and the [identity sheet](docs/branding.png).
 - Built-in workspaces are drawn as dots with an accent pill for the active one.
+- Panels can opt into centering on their Island/Orbit capsule instead of the clicked icon, while staying within screen edges.
 - A design kit (`kit/`) with the theme, panel, buttons, toggles and sliders that the other Velunori plugins import.
 
 ## Requirements
 
-Omarchy with the shell plugin API. Developed against **Omarchy 4.0.6-1**.
+Omarchy with the shell plugin API and Python 3. Developed against **Omarchy 4.0.6-1**.
 
 ## Install
 
@@ -33,6 +36,8 @@ omarchy plugin enable omarchy.bar
 ## Use
 
 Click the settings icon in the bar, or run `omarchy-shell velunori settings`. With Control Center installed the icon opens it; without it, the icon opens the appearance editor. Selecting a layout previews it immediately. Apply saves it; Cancel, Escape or closing the panel discards the preview.
+
+Chromium receives a dark graphite seed with an 18% accent tint and derives its own shades from it; this is not an exact replacement of every browser surface. Synchronization needs Omarchy’s existing passwordless permission for `/usr/bin/omarchy-theme-set-browser-policy`. A failure appears in Appearance; `omarchy-shell velunori appearanceStatus` reports its status. No browser profile files are edited, and other Omarchy themes keep their own browser colors. Omarchy’s policy helper also updates other installed Chromium-family browsers that have its managed policy directory.
 
 Settings are stored under `bar.velunori` in `shell.json`:
 
@@ -58,7 +63,7 @@ Feature plugins import `kit/` from the sibling directory `velunori.core`. `compo
 bash scripts/check.sh
 ```
 
-Checks cover the settings lifecycle, normalisation, collision thresholds and QML lint. They run headlessly and do not verify layer-shell placement, input masks, shell IPC or persistence through the real host; those need a look in the desktop session.
+Checks cover the browser accent bridge with temporary profiles and mocked privileged commands, the settings lifecycle, normalisation, collision thresholds and QML lint. They run headlessly and do not verify layer-shell placement, input masks, shell IPC or persistence through the real host; those need a look in the desktop session.
 
 ## Limits
 
@@ -80,6 +85,7 @@ Velunori is a set of independent plugins for the [Omarchy](https://omarchy.org) 
 | [menu](https://github.com/velunori/menu) | The Omarchy command menu as a two-pane panel |
 | [update](https://github.com/velunori/update) | A window for `omarchy update` with release notes and live progress |
 | [weather](https://github.com/velunori/weather) | Weather in the bar with a forecast panel |
+| [lockscreen](https://github.com/velunori/lockscreen) | Serene lock screen using Omarchy's session lock and authentication |
 
 ## License
 

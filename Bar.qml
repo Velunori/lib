@@ -20,6 +20,7 @@ Item {
   id: root
 
   readonly property var savedAppearance: Appearance.normalize(barConfig.velunori)
+  BrowserAccent { id: browserAccent; accent: root.savedAppearance.accent }
   property var previewAppearance: null
   readonly property var appearance: previewAppearance || savedAppearance
   readonly property bool orbit: appearance.style === "orbit"
@@ -168,6 +169,7 @@ Item {
             id: settingsContent
             width: parent.width
             height: implicitHeight
+            syncError: browserAccent.errorText
             onPreviewRequested: function(value) { root.previewAppearance = value }
             onCancelRequested: settingsOwner.close()
             onApplyRequested: function(value) {
@@ -185,6 +187,7 @@ Item {
   IpcHandler {
     target: "velunori"
     function settings(): void { root.openSettings() }
+    function appearanceStatus(): string { return JSON.stringify({accent: root.savedAppearance.accent, browserError: browserAccent.errorText}); }
     function hideSettings(): void { root.closeSettings() }
     function status(): string {
       return JSON.stringify({style: root.appearance.style, ready: root.hostReady, controlCenterOpened: root.controlCenterWidget() ? root.controlCenterWidget().opened : settingsOwner.opened,
@@ -230,7 +233,7 @@ Item {
     position: "top",
     transparent: false,
     centerAnchor: "omarchy.clock",
-    layout: { left: [], center: [], right: [] }
+    layout: { left: [], centerBegin: [], center: [], centerEnd: [], right: [], tray: [] }
   })
   property var layoutConfig: fallbackBarConfig.layout
   property string centerAnchor: ""
@@ -274,6 +277,15 @@ Item {
   property bool tooltipShown: false
   property int tooltipRequest: 0
   property var activePopout: null
+  readonly property bool traySectionDragActive: !!barDragSource && !barDragSource.hostsTraySection
+  readonly property bool traySectionPopoutOpen: moduleSlots.some(function(slot) {
+    return slot && slot.region === "tray" && slot.activeItem === root.activePopout
+  })
+  readonly property bool hostTraySections: "barSections" in Util && Util.barSections.indexOf("tray") !== -1
+  property var sectionDropAreas: []
+  function registerDropArea(area) { sectionDropAreas = sectionDropAreas.concat([area]) }
+  function unregisterDropArea(area) { sectionDropAreas = sectionDropAreas.filter(function(value) { return value !== area }) }
+  property string barDragTargetRegion: ""
   property var barDragSource: null
   property var barDragTarget: null
   property var barDragTargetGeometry: null
@@ -311,6 +323,9 @@ Item {
 
   function bindPluginBarApi(api) {
     if (!api) return
+    if ("traySectionDragActive" in api) api.traySectionDragActive = Qt.binding(function() { return root.traySectionDragActive })
+    if ("traySectionPopoutOpen" in api) api.traySectionPopoutOpen = Qt.binding(function() { return root.traySectionPopoutOpen })
+    api.appearanceSyncError = Qt.binding(function() { return browserAccent.errorText })
     api.desktopState = Qt.binding(function() { return JSON.parse(JSON.stringify(root.desktopState)) })
     api.velunori = Qt.binding(function() {
       return { apiVersion: 1, style: root.appearance.style, accentName: root.appearance.accent, motion: root.appearance.motion }
@@ -625,6 +640,7 @@ Item {
     barDragScreen = null
     barDragImageUrl = ""
     barDragTarget = null
+    barDragTargetRegion = ""
     barDragTargetGeometry = null
     barDragAfter = false
     barDragSceneX = 0
@@ -772,17 +788,8 @@ Item {
   // Apply tray-pinning on top of the shared layout normalization so the
   // bar host and scriptable config helpers can't drift on entry shape.
   function normalizeLayout(layout) {
-    var normalized = Util.normalizeLayout(Util.isPlainObject(layout) ? layout : fallbackBarConfig.layout)
-    // Derive from this exact snapshot: the hasControlCenter binding may still
-    // contain the previous configuration during onBarConfigChanged.
-    var unified = [normalized.left, normalized.center, normalized.right].some(function(entries) {
-      return entries.some(function(entry) { return BarModel.entryId(entry) === "velunori.control-center" })
-    })
-    return {
-      left: pinTrayToInner(unified ? BarModel.withoutDesktopControls(normalized.left) : normalized.left, "left"),
-      center: pinTrayToInner(unified ? BarModel.withoutDesktopControls(normalized.center) : normalized.center, "center"),
-      right: pinTrayToInner(unified ? BarModel.withoutDesktopControls(normalized.right) : normalized.right, "right")
-    }
+    return BarModel.normalizeSections(Util.isPlainObject(layout) ? layout : fallbackBarConfig.layout,
+      function(entries) { return Util.normalizeLayoutSection(entries) })
   }
 
   // The tray drawer reveals inward (away from the bar edge). Place it at the
@@ -841,13 +848,15 @@ Item {
   // so tabbing walks the bar the open panel belongs to instead of hopping the
   // panel to another monitor's copy of the same widget.
   function panelNavigationSlots(region, window) {
-    var entries = layoutEntries(region)
+    var regions = BarModel.isCenter(region) ? ["centerBegin", "center", "centerEnd"] : [region]
+    var entries = []
+    regions.forEach(function(name) { root.layoutEntries(name).forEach(function(entry) { entries.push({region: name, entry: entry}) }) })
     var slots = []
     for (var i = 0; i < entries.length; i++) {
-      var id = entryId(entries[i])
+      var id = entryId(entries[i].entry)
       for (var j = 0; j < moduleSlots.length; j++) {
         var slot = moduleSlots[j]
-        if (!slot || slot.region !== region || slot.moduleName !== id) continue
+        if (!slot || slot.region !== entries[i].region || slot.moduleName !== id) continue
         if (window && !sameWindow(slotWindow(slot), window)) continue
         var item = slot.activeItem
         if (!item || item.visible !== true || slot.visible !== true || slot.width <= 0 || slot.height <= 0) continue
@@ -1089,6 +1098,7 @@ Item {
   }
 
   function moveModuleInConfig(config, fromRegion, fromName, toRegion, beforeName) {
+    if (toRegion === "tray" && fromName === "omarchy.tray") return false
     var fromEntries = rawLayoutSection(config, fromRegion)
     var toEntries = rawLayoutSection(config, toRegion)
     var fromIndex = rawEntryIndex(fromEntries, fromName)
@@ -1156,6 +1166,22 @@ Item {
       })
     }
 
+    // Empty center sections and the tray drawer remain drop targets.
+    for (var d = sectionDropAreas.length - 1; d >= 0; d--) {
+      var area = sectionDropAreas[d]
+      if (!area || !area.visible || !area.enabled || (sourceSlot.hostsTraySection && area.region === "tray")) continue
+      if (sourceWindow && !root.sameWindow(root.targetWindow(area), sourceWindow)) continue
+      var point = area.mapFromItem(null, scenePoint.x, scenePoint.y)
+      if (point.x >= 0 && point.x <= area.width && point.y >= 0 && point.y <= area.height) {
+        // Prefer the actual children for before/after insertion; the area is
+        // the destination only in empty space around them.
+        var occupied = candidates.some(function(candidate) {
+          return candidate.slot.region === area.region && scenePoint.x >= candidate.x && scenePoint.x <= candidate.x + candidate.width
+            && scenePoint.y >= candidate.y && scenePoint.y <= candidate.y + candidate.height
+        })
+        if (!occupied) return {slot: null, region: area.region, after: true}
+      }
+    }
     return BarModel.nearestDropTarget(candidates, scenePoint, root.vertical)
   }
 
@@ -1596,6 +1622,7 @@ Item {
 
         Flickable {
           id: capsuleViewport
+          readonly property bool velunoriPanelAnchor: !floatingLayout.spread
           x: floatingLayout.spread ? 0 : islandSurface.x
           y: root.surfaceInset
           width: floatingLayout.spread ? floatingLayout.width : islandSurface.width
@@ -1609,6 +1636,7 @@ Item {
 
           Rectangle {
             id: leftCapsule
+            readonly property bool velunoriPanelAnchor: floatingLayout.spread
             x: floatingLayout.spread ? tokens.edgeGap : 0
             width: leftWidgets.width + 28
             height: tokens.barHeight
@@ -1620,6 +1648,7 @@ Item {
 
           Rectangle {
             id: centerCapsule
+            readonly property bool velunoriPanelAnchor: floatingLayout.spread
             x: floatingLayout.spread ? (capsuleViewport.width - width) / 2 : leftCapsule.width + floatingLayout.sectionGap
             width: centerWidgets.width + 28
             height: tokens.barHeight
@@ -1630,15 +1659,12 @@ Item {
               onHoveredChanged: root.setCenterSectionHovered(hovered)
               Component.onDestruction: if (hovered) root.setCenterSectionHovered(false)
             }
-            ModuleList {
-              id: centerWidgets
-              entries: root.layoutEntries("center"); region: "center"
-              anchors.centerIn: parent
-            }
+            CenterStrip { id: centerWidgets; anchors.centerIn: parent }
           }
 
           Rectangle {
             id: rightCapsule
+            readonly property bool velunoriPanelAnchor: floatingLayout.spread
             x: floatingLayout.spread ? capsuleViewport.width - width - tokens.edgeGap : leftCapsule.width + centerCapsule.width + floatingLayout.sectionGap * 2
             width: rightWidgets.width + (settingsButton.visible ? 60 : 28)
             height: tokens.barHeight
@@ -1851,9 +1877,51 @@ Item {
     region: "left"
   }
 
-  component RightModules: ModuleList {
-    entries: root.layoutEntries("right")
-    region: "right"
+  component RightModules: Row {
+    ModuleList { entries: root.layoutEntries("right"); region: "right" }
+    // Downgrades keep new configuration visible even if the old tray has no
+    // sectionHost. Under 4.5 these are drawn only inside the real drawer.
+    ModuleList { entries: root.hostTraySections ? [] : root.layoutEntries("tray"); region: "tray" }
+  }
+
+  component SectionDropArea: Rectangle {
+    required property string region
+    visible: !!root.barDragSource && root.hostTraySections
+    color: "transparent"; border.color: tokens.accent; border.width: 1
+    radius: 5; opacity: .5
+    Component.onCompleted: root.registerDropArea(this)
+    Component.onDestruction: root.unregisterDropArea(this)
+  }
+
+  component CenterStrip: CenterLayout {
+    id: strip
+    beforeWidth: before.width; centerWidth: middle.width; afterWidth: after.width
+    implicitHeight: root.barSize
+    ModuleList { id: middle; entries: root.layoutEntries("center"); region: "center"; x: strip.centerX; anchors.verticalCenter: parent.verticalCenter }
+    ModuleList { id: before; entries: root.layoutEntries("centerBegin"); region: "centerBegin"; x: strip.beforeX; anchors.verticalCenter: parent.verticalCenter }
+    ModuleList { id: after; entries: root.layoutEntries("centerEnd"); region: "centerEnd"; x: strip.afterX; anchors.verticalCenter: parent.verticalCenter }
+    SectionDropArea {
+      region: "center"; x: middle.x; height: parent.height
+      width: Math.max(24, middle.width); enabled: middle.width === 0
+    }
+    SectionDropArea {
+      region: "centerBegin"; x: middle.x - Math.max(18, before.width); height: parent.height
+      width: Math.max(18, before.width)
+    }
+    SectionDropArea {
+      region: "centerEnd"; x: middle.x + middle.width; height: parent.height
+      width: Math.max(18, after.width)
+    }
+  }
+
+  Component {
+    id: traySectionComponent
+    Item {
+      implicitWidth: Math.max(widgets.width, root.traySectionDragActive ? 24 : 0)
+      implicitHeight: root.barSize
+      ModuleList { id: widgets; entries: root.layoutEntries("tray"); region: "tray" }
+      SectionDropArea { region: "tray"; width: Math.max(24, parent.width); height: root.barSize }
+    }
   }
 
   component CenterModules: Item {
@@ -2119,6 +2187,13 @@ Item {
       var registryName = root.canonicalWidgetId(moduleName)
       return w[registryName] ? w[registryName].component : null
     }
+    readonly property bool hostsTraySection: region !== "tray" && !!activeItem && "sectionHost" in activeItem
+    function inTraySection(x, y) {
+      var host = hostsTraySection ? activeItem.sectionHost : null
+      if (!host) return false
+      var point = slot.mapToItem(host, x, y)
+      return point.x >= 0 && point.y >= 0 && point.x <= host.implicitWidth && point.y <= host.implicitHeight
+    }
     readonly property bool qmlCustom: customType === "qml"
     readonly property bool commandCustom: customType === "command"
     readonly property bool registered: registryComponent !== null
@@ -2142,12 +2217,13 @@ Item {
     // Omarchy's tray reserves its entire drawer even while collapsed. Floating
     // capsules reserve only the visible portion; preserve the widget's internal
     // geometry by translating its loader left by the hidden drawer extent.
-    readonly property real leadingTrim: moduleName === "omarchy.tray" && activeItem
+    readonly property real hiddenDrawerExtent: moduleName === "omarchy.tray" && activeItem
       && "drawerExtent" in activeItem && "revealExtent" in activeItem
       ? Math.max(0, activeItem.drawerExtent - activeItem.revealExtent) : 0
-    implicitWidth: activeItem && activeItem.visible ? (root.vertical ? root.barSize : Math.max(0, activeItem.implicitWidth - leadingTrim)) : 0
+    readonly property real leadingTrim: activeItem && "fixedEdge" in activeItem && activeItem.fixedEdge === "start" ? 0 : hiddenDrawerExtent
+    implicitWidth: activeItem && activeItem.visible ? (root.vertical ? root.barSize : Math.max(0, activeItem.implicitWidth - hiddenDrawerExtent)) : 0
     implicitHeight: root.barSize
-    clip: leadingTrim > 0
+    clip: hiddenDrawerExtent > 0
     width: implicitWidth
     height: implicitHeight
     z: modulePointer.dragging ? 100 : 0
@@ -2236,6 +2312,12 @@ Item {
       }
     }
 
+    TraySection {
+      host: slot.hostsTraySection ? slot.activeItem.sectionHost : null
+      fallbackParent: slot
+      content: traySectionComponent
+    }
+
     MouseArea {
       id: modulePointer
 
@@ -2258,6 +2340,7 @@ Item {
       // make neighboring modules overlap after a small aborted drag.
 
       onPressed: function(mouse) {
+        if (slot.inTraySection(mouse.x, mouse.y)) { mouse.accepted = false; return }
         dragging = false
         suppressClick = false
         pressedX = mouse.x
@@ -2292,6 +2375,7 @@ Item {
 
           var drop = root.moduleDropAtScene(scenePoint, slot)
           root.barDragTarget = drop ? drop.slot : null
+          root.barDragTargetRegion = drop && drop.region ? drop.region : ""
           root.barDragAfter = drop ? drop.after : false
           root.barDragTargetGeometry = drop ? root.dropMarkerRect(drop.slot, drop.after) : null
         }
@@ -2300,6 +2384,7 @@ Item {
       onReleased: function(mouse) {
         var wasDragging = dragging
         var targetSlot = root.barDragTarget
+        var targetRegion = root.barDragTargetRegion
         var afterTarget = root.barDragAfter
 
         if (wasDragging) suppressClick = true
@@ -2309,6 +2394,9 @@ Item {
 
         if (wasDragging && targetSlot) {
           root.dropBarModuleAtTarget(slot, targetSlot, afterTarget)
+          mouse.accepted = true
+        } else if (wasDragging && targetRegion) {
+          root.dropBarModule(slot, targetRegion, "")
           mouse.accepted = true
         } else if (!wasDragging) {
           mouse.accepted = false
@@ -2344,6 +2432,7 @@ Item {
         ? root : root.pluginBarApiFor(pluginApiId, moduleName, registered)
       if ("moduleName" in target) target.moduleName = moduleName
       if ("settings" in target) target.settings = moduleSettings
+      if ("fixedEdge" in target) target.fixedEdge = region === "left" || region === "centerEnd" ? "start" : region === "right" || region === "centerBegin" || region === "tray" ? "end" : "center"
     }
 
     Component {

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+python3 -m unittest discover -s tests -p "test_*.py"
 node tests/appearance.test.mjs
+node tests/panel-geometry.test.mjs
+node tests/workspaces.test.mjs tests/layout45.test.mjs
 /usr/lib/qt6/bin/qmllint components/*.qml design/Tokens.qml
 runtime_dir=$(mktemp -d)
 trap 'rm -rf "$runtime_dir"' EXIT
@@ -14,7 +17,7 @@ ln -s "$shell_root/Ui" "$runtime_dir/imports/qs/Ui"
 # their type-inference diagnostics informational, while enforcing other checks.
 /usr/lib/qt6/bin/qmllint -I "$runtime_dir/imports" \
   --unqualified info --missing-property info --incompatible-type info \
-  Bar.qml kit/*.qml > "$runtime_dir/bar-lint.log" 2>&1 || {
+  Bar.qml BrowserAccent.qml kit/*.qml > "$runtime_dir/bar-lint.log" 2>&1 || {
     cat "$runtime_dir/bar-lint.log"
     exit 1
   }
@@ -35,4 +38,13 @@ cat "$runtime_dir/settings.log"
 rg -q 'SETTINGS_TEST_PASSED' "$runtime_dir/settings.log"
 if rg -q 'SETTINGS_TEST_FAILED|Failed to load|ReferenceError|TypeError|Binding loop|Unable to assign' "$runtime_dir/settings.log"; then
   exit 1
+fi
+if [[ -n ${VELUNORI_BRAND_PREVIEW_PATH:-} ]]; then
+  sed 's|"../kit"|"kit"|' tests/branding.qml > "$runtime_dir/branding.qml"
+  env -u WAYLAND_DISPLAY -u DISPLAY XDG_RUNTIME_DIR="$runtime_dir" \
+    QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic QT_QUICK_BACKEND=software \
+    timeout 10s quickshell -p "$runtime_dir/branding.qml" --no-color > "$runtime_dir/branding.log" 2>&1 || { cat "$runtime_dir/branding.log"; exit 1; }
+  cat "$runtime_dir/branding.log"
+  rg -q BRANDING_PREVIEW_SAVED "$runtime_dir/branding.log"
+  ! rg -q 'BRANDING_PREVIEW_FAILED|Failed to load|ReferenceError|TypeError|Unable to assign|Error decoding' "$runtime_dir/branding.log"
 fi

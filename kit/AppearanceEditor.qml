@@ -7,6 +7,7 @@ import "../design/Appearance.js" as Appearance
 
 Item {
     id: root
+    property string syncError: ""
     property var draft: Appearance.normalize({})
     property string errorText: ""
     readonly property color accent: Appearance.accentColor(draft.accent)
@@ -47,7 +48,7 @@ Item {
             Item { Layout.fillWidth: true }
             Kit.Toggle { accent: root.accent; checked: root.draft.motion; onClicked: root.choose("motion", checked) }
         }
-        Text { Layout.fillWidth: true; text: root.errorText || "Live preview. Dismiss to discard, Apply to save."; color: root.errorText ? "#f0a6a6" : "#a4a2b1"; font.pixelSize: 12; wrapMode: Text.WordWrap }
+        Text { Layout.fillWidth: true; text: root.errorText || root.syncError || "Live preview. Dismiss to discard, Apply to save."; color: (root.errorText || root.syncError) ? "#f0a6a6" : "#a4a2b1"; font.pixelSize: 12; wrapMode: Text.WordWrap }
         RowLayout {
             Item { Layout.fillWidth: true }
             UI.ActionButton { text: "Cancel"; accent: root.accent; onClicked: root.cancelRequested() }

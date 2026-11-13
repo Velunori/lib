@@ -2,6 +2,9 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import Quickshell.Hyprland
+import Quickshell
+import Quickshell.Io
+import "WorkspaceModel.js" as Model
 
 Item {
     id: root
@@ -10,15 +13,35 @@ Item {
     property var settings: ({})
     implicitHeight: 28
     implicitWidth: workspaceRow.width
+    property var workspaceValues: Hyprland.workspaces.values
+    property var monitor: {
+        var window = root.QsWindow.window;
+        return window && window.screen ? Hyprland.monitorFor(window.screen) : Hyprland.focusedMonitor;
+    }
+    property var focusedWorkspace: Hyprland.focusedWorkspace
+    property var blocks: ({})
+    property bool perMonitor: false
+    readonly property string monitorName: monitor ? monitor.name : ""
+    readonly property int activeId: perMonitor ? (monitor && monitor.activeWorkspace ? monitor.activeWorkspace.id : -1) : (focusedWorkspace ? focusedWorkspace.id : -1)
+    readonly property int block: Model.monitorBlock(blocks, monitorName, activeId)
+    FileView {
+        // Feature detection, rather than a version check. A stale block file
+        // left by a downgrade must not activate the new dispatchers on 4.0.
+        path: (Quickshell.env("OMARCHY_PATH") || "/usr/share/omarchy") + "/default/hypr/monitor-workspaces.lua"
+        printErrors: false
+        onLoaded: root.perMonitor = true
+        onLoadFailed: root.perMonitor = false
+    }
+    FileView {
+        path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy/monitor-workspaces"
+        watchChanges: true; printErrors: false
+        onFileChanged: reload()
+        onLoaded: root.blocks = Model.readBlocks(text())
+        onLoadFailed: root.blocks = ({})
+    }
 
     function workspaceIds() {
-        var ids = [1, 2, 3, 4, 5];
-        var values = Hyprland.workspaces.values;
-        for (var i = 0; i < values.length; i++) {
-            if (values[i].id > 0 && values[i].id <= 10 && ids.indexOf(values[i].id) === -1)
-                ids.push(values[i].id);
-        }
-        return ids.sort(function(a, b) { return a - b; });
+        return Model.workspaceIds(workspaceValues, perMonitor, monitorName, block);
     }
 
     Row {
@@ -30,7 +53,8 @@ Item {
             delegate: AbstractButton {
                 id: workspaceButton
                 required property int modelData
-                readonly property bool focused: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === modelData
+                readonly property bool focused: root.activeId === modelData
+                readonly property int label: root.perMonitor && Model.blockOf(modelData) === root.block ? Model.slotOf(modelData) : modelData
                 width: focused ? 38 : 24
                 height: 28
                 hoverEnabled: true
@@ -40,7 +64,7 @@ Item {
                 readonly property bool tooltipHovered: workspaceHover.hovered
                 function triggerPress(button) {
                     if (button === Qt.LeftButton && root.bar)
-                        root.bar.run("hyprctl dispatch 'hl.dsp.focus({ workspace = \"" + modelData + "\" })'");
+                        root.bar.run(Model.focusCommand(modelData, root.perMonitor, root.monitorName, root.block));
                 }
                 function syncHost() {
                     if (registeredHost) registeredHost.unregisterClickTarget(workspaceButton);
@@ -50,7 +74,7 @@ Item {
                 onHostChanged: syncHost()
                 Component.onCompleted: syncHost()
                 Component.onDestruction: if (registeredHost) registeredHost.unregisterClickTarget(workspaceButton)
-                Accessible.name: "Workspace " + modelData
+                Accessible.name: "Workspace " + label + (root.perMonitor ? " · " + root.monitorName : "")
                 Accessible.role: Accessible.Button
                 onClicked: triggerPress(Qt.LeftButton)
                 HoverHandler {
@@ -65,7 +89,7 @@ Item {
                         // click/drag surface, independently of Control.hovered.
                         Qt.callLater(function() {
                             if (workspaceHover.hovered && root.bar)
-                                root.bar.showTooltip(workspaceButton, "Workspace " + workspaceButton.modelData);
+                                root.bar.showTooltip(workspaceButton, "Workspace " + workspaceButton.label);
                         });
                     }
                 }

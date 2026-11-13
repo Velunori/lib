@@ -60,7 +60,19 @@ controls. Theme also exposes `secondaryAccent` for paired traffic graphs.
 Only `velunori.control-center` receives the scoped `desktopState` and
 `setDesktopToggle`, `previewAppearance`, `applyAppearance`,
 `clearAppearancePreview` callbacks. Other plugins receive no mutation callbacks.
+
+Core 0.4.3 adds `bar.appearanceSyncError`, an empty string on success or a
+browser accent synchronization error for the appearance editor to display.
+`AppearanceEditor.syncError` accepts that message separately from save errors.
+Only the saved accent is synchronized; preview and cancel do not alter the browser.
 No device service objects cross this facade. Control Center requires core 0.4.0.
+
+## Brand mark (core 0.4.4)
+
+`BrandMark` is a transparent vector icon with an `ink` color property and a
+default 24 × 24 size. Use 18 × 18 for a bar launcher, with `ink: theme.accent`.
+It does not depend on the Omarchy icon font. SVG exports and the editable
+wordmark are documented in [branding.md](branding.md).
 
 ## Composite bar indicators (core 0.4.1)
 
