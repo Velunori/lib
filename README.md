@@ -52,7 +52,7 @@ bash lib/scripts/compose-preview.sh /tmp/velunori-lib.png lib/docs/preview.png
 
 Run from the workspace root. Checks cover copy-only installation without shell changes, conflict protection, absence of alias creation, appearance normalization, panel geometry, QML lint, default styling without a bar and scoped desktop adapters using stand-ins. QML runs offscreen in temporary directories. No account access, authentication, desktop locking, theme activation or real system update is performed.
 
-Set `VELUNORI_LIB_PATH` when a consumer's checks use this library from another location. The isolated `.refactor/` consumers use that override while development changes remain off the live desktop.
+Set `VELUNORI_LIB_PATH` when a consumer's checks should use this library from another location.
 
 ## Limits
 
