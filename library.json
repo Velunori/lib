@@ -1,0 +1,8 @@
+{
+  "id": "velunori.lib",
+  "name": "Velunori Library",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "license": "MIT",
+  "description": "Shared UI primitives and host adapters. No bar, widget, service or authentication entry point."
+}

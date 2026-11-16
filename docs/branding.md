@@ -19,9 +19,9 @@ Interface labels keep the shell font for readability.
 - `assets/brand/velunori-wordmark.svg`: horizontal mark and wordmark, for dark surfaces.
 - `docs/branding.png`: rendered identity sheet, including the actual 18 px launcher.
 
-Run `node core/scripts/export-brand.mjs` after changing the vector source.
+Run `node lib/scripts/export-brand.mjs` after changing the vector source.
 Render the identity sheet with
-`VELUNORI_BRAND_PREVIEW_PATH="$PWD/core/docs/branding.png" bash core/scripts/check.sh`
+`VELUNORI_PREVIEW_PATH="$PWD/lib/docs/branding.png" bash lib/scripts/check.sh`
 from the workspace root.
 
 ## Usage
@@ -36,7 +36,7 @@ are supported UI accents. Surfaces stay graphite `#202026`, with text `#eeedf3`.
 The white and graphite exports are for neutral dark and light backgrounds.
 
 ```qml
-import "../velunori.core/kit" as V
+import "../lib/kit" as V
 V.BrandMark { width: 18; height: 18; ink: theme.accent }
 ```
 

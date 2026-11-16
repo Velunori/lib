@@ -8,3 +8,4 @@ Toggle 1.0 Toggle.qml
 Surface 1.0 Surface.qml
 Choice 1.0 Choice.qml
 AppearanceEditor 1.0 AppearanceEditor.qml
+DesktopBridge 1.0 DesktopBridge.qml

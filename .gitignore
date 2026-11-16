@@ -1,7 +1,2 @@
-*.log
-*.qmlc
-*.jsc
-*.pyc
 __pycache__/
-.venv/
-.DS_Store
+*.pyc
